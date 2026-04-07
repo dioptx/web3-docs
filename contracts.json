@@ -1,0 +1,402 @@
+{
+  "_version": "1.0.0",
+  "_description": "Canonical contract addresses for major Web3 protocols. Chain IDs follow EIP-155.",
+  "_chains": {
+    "1": "Ethereum Mainnet",
+    "10": "Optimism",
+    "56": "BNB Chain",
+    "100": "Gnosis",
+    "137": "Polygon",
+    "250": "Fantom",
+    "324": "zkSync Era",
+    "8453": "Base",
+    "42161": "Arbitrum One",
+    "43114": "Avalanche C-Chain"
+  },
+  "protocols": {
+    "uniswap": {
+      "name": "Uniswap",
+      "website": "https://uniswap.org",
+      "versions": {
+        "v2": {
+          "deployments": {
+            "1": {
+              "factory": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+              "router": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+            }
+          }
+        },
+        "v3": {
+          "deployments": {
+            "1": {
+              "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F765",
+              "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+              "universal_router": "0x66a9893cC07D91D95644Aedd05D03f95e1dBA8Af",
+              "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+              "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+              "position_manager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"
+            },
+            "10": {
+              "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F765",
+              "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+            },
+            "137": {
+              "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F765",
+              "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+            },
+            "42161": {
+              "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F765",
+              "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+            },
+            "8453": {
+              "factory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+              "router": "0x2626664c2603336E57B271c5C0b26F421741e481"
+            }
+          }
+        }
+      }
+    },
+    "aave": {
+      "name": "Aave",
+      "website": "https://aave.com",
+      "versions": {
+        "v3": {
+          "deployments": {
+            "1": {
+              "pool": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+              "pool_addresses_provider": "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e",
+              "oracle": "0x54586bE62E3c3580375aE3723C145253060Ca0C2"
+            },
+            "10": {
+              "pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
+            },
+            "137": {
+              "pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
+            },
+            "42161": {
+              "pool": "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
+            },
+            "8453": {
+              "pool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5"
+            }
+          }
+        }
+      }
+    },
+    "chainlink": {
+      "name": "Chainlink",
+      "website": "https://chain.link",
+      "versions": {
+        "v1": {
+          "deployments": {
+            "1": {
+              "feed_registry": "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf",
+              "link_token": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+              "vrf_coordinator_v2_5": "0xD7f86b4b8Cae7D942340FF628F82735b7a20893a"
+            }
+          }
+        }
+      }
+    },
+    "ens": {
+      "name": "Ethereum Name Service",
+      "website": "https://ens.domains",
+      "versions": {
+        "v1": {
+          "deployments": {
+            "1": {
+              "registry": "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+              "public_resolver": "0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63",
+              "eth_registrar_controller": "0x253553366Da8546fC250F225fe3d25d0C782303b",
+              "reverse_registrar": "0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb",
+              "name_wrapper": "0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401"
+            }
+          }
+        }
+      }
+    },
+    "lido": {
+      "name": "Lido",
+      "website": "https://lido.fi",
+      "versions": {
+        "v1": {
+          "deployments": {
+            "1": {
+              "steth": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+              "wsteth": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+              "withdrawal_queue": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1"
+            },
+            "10": {
+              "wsteth": "0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb"
+            },
+            "42161": {
+              "wsteth": "0x5979D7b546E38E414F7E9822514be443A4800529"
+            },
+            "137": {
+              "wsteth": "0x03b54A6e9a984069379fae1a4fC4dBAE93B3bCCD"
+            }
+          }
+        }
+      }
+    },
+    "maker": {
+      "name": "MakerDAO / Sky",
+      "website": "https://makerdao.com",
+      "versions": {
+        "v1": {
+          "deployments": {
+            "1": {
+              "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+              "usds": "0xdC035D45d973E3EC169d2276DDab16f1e407384F",
+              "vat": "0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B",
+              "dai_join": "0x9759A6Ac90977b93B58547b4A71c78317f391A28",
+              "pot": "0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7",
+              "jug": "0x19c0976f590D67707E62397C87829d896Dc0f1F1"
+            }
+          }
+        }
+      }
+    },
+    "weth": {
+      "name": "Wrapped Ether",
+      "website": "https://weth.io",
+      "versions": {
+        "v9": {
+          "deployments": {
+            "1": { "weth": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" },
+            "10": { "weth": "0x4200000000000000000000000000000000000006" },
+            "137": { "weth": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619" },
+            "42161": { "weth": "0x82aF49447d8a07e3bd95BD0d56f35db45227D331" },
+            "8453": { "weth": "0x4200000000000000000000000000000000000006" },
+            "43114": { "weth": "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB" }
+          }
+        }
+      }
+    },
+    "multicall": {
+      "name": "Multicall3",
+      "website": "https://multicall3.com",
+      "versions": {
+        "v3": {
+          "deployments": {
+            "1": { "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11" },
+            "10": { "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11" },
+            "56": { "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11" },
+            "100": { "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11" },
+            "137": { "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11" },
+            "250": { "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11" },
+            "324": { "multicall3": "0xF9cda624FBC7e059355ce98a31693d299FACd963" },
+            "8453": { "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11" },
+            "42161": { "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11" },
+            "43114": { "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11" }
+          }
+        }
+      }
+    },
+    "erc4337": {
+      "name": "ERC-4337 Account Abstraction",
+      "website": "https://eips.ethereum.org/EIPS/eip-4337",
+      "versions": {
+        "v0.6": {
+          "deployments": {
+            "1": { "entry_point": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" },
+            "10": { "entry_point": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" },
+            "137": { "entry_point": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" },
+            "42161": { "entry_point": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" },
+            "8453": { "entry_point": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" }
+          }
+        },
+        "v0.7": {
+          "deployments": {
+            "1": { "entry_point": "0x0000000071727De22E5E9d8BAf0edAc6f37da032" },
+            "10": { "entry_point": "0x0000000071727De22E5E9d8BAf0edAc6f37da032" },
+            "42161": { "entry_point": "0x0000000071727De22E5E9d8BAf0edAc6f37da032" },
+            "8453": { "entry_point": "0x0000000071727De22E5E9d8BAf0edAc6f37da032" }
+          }
+        }
+      }
+    },
+    "create2_deployer": {
+      "name": "CREATE2 Deployer",
+      "website": "https://github.com/pcaversaccio/create2deployer",
+      "versions": {
+        "v1": {
+          "deployments": {
+            "1": { "deployer": "0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2" },
+            "10": { "deployer": "0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2" },
+            "137": { "deployer": "0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2" },
+            "42161": { "deployer": "0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2" },
+            "8453": { "deployer": "0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2" }
+          }
+        }
+      }
+    },
+    "compound": {
+      "name": "Compound Finance",
+      "website": "https://compound.finance",
+      "versions": {
+        "v3": {
+          "deployments": {
+            "1": {
+              "configurator": "0x316f9708bB98af7dA9c68C1C3b5e79039cD336E3",
+              "comet_usdc": "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+              "comet_weth": "0xA17581A9E3356d9A858b789D68B4d866e593aE94",
+              "rewards": "0x1B0e765F6224C21223AeA2af16c1C46E38885a40"
+            },
+            "42161": {
+              "comet_usdc": "0x9c4ec768c28520B50860ea7a15bd7213a9fF58bf"
+            },
+            "8453": {
+              "comet_usdc": "0xb125E6687d4313864e53df431d5425969c15Eb2F"
+            },
+            "137": {
+              "comet_usdc": "0xF25212E676D1F7F89Cd72fFEe66158f541246445"
+            }
+          }
+        }
+      }
+    },
+    "curve": {
+      "name": "Curve Finance",
+      "website": "https://curve.fi",
+      "versions": {
+        "v1": {
+          "deployments": {
+            "1": {
+              "address_provider": "0x0000000022D53366457F9d5E68Ec105046FC4383",
+              "stableswap_factory": "0x6A8cbed756804B16E05E741eDaBd5cB544AE21bf",
+              "router": "0xF0d4c12A5768D806021F80a262B4d39d26C58b8D",
+              "crv_token": "0xD533a949740bb3306d119CC777fa900bA034cd52"
+            }
+          }
+        }
+      }
+    },
+    "gnosis_safe": {
+      "name": "Safe (Gnosis Safe)",
+      "website": "https://safe.global",
+      "versions": {
+        "v1.4.1": {
+          "deployments": {
+            "1": {
+              "safe_singleton": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+              "safe_proxy_factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+              "multi_send": "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526",
+              "fallback_handler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99"
+            },
+            "10": {
+              "safe_singleton": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+              "safe_proxy_factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67"
+            },
+            "137": {
+              "safe_singleton": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+              "safe_proxy_factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67"
+            },
+            "42161": {
+              "safe_singleton": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+              "safe_proxy_factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67"
+            },
+            "8453": {
+              "safe_singleton": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+              "safe_proxy_factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67"
+            }
+          }
+        }
+      }
+    },
+    "permit2": {
+      "name": "Uniswap Permit2",
+      "website": "https://github.com/Uniswap/permit2",
+      "versions": {
+        "v1": {
+          "deployments": {
+            "1": { "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3" },
+            "10": { "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3" },
+            "137": { "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3" },
+            "42161": { "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3" },
+            "8453": { "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3" },
+            "43114": { "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3" }
+          }
+        }
+      }
+    },
+    "usdt": {
+      "name": "Tether USD (USDT)",
+      "website": "https://tether.to",
+      "versions": {
+        "v1": {
+          "deployments": {
+            "1": { "usdt": "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
+            "56": { "usdt": "0x55d398326f99059fF775485246999027B3197955" },
+            "137": { "usdt": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
+            "42161": { "usdt": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" },
+            "10": { "usdt": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58" },
+            "43114": { "usdt": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7" }
+          }
+        }
+      }
+    },
+    "usdc": {
+      "name": "USD Coin (USDC)",
+      "website": "https://www.circle.com/usdc",
+      "versions": {
+        "v2.1": {
+          "deployments": {
+            "1": { "usdc": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
+            "10": { "usdc": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" },
+            "137": { "usdc": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359" },
+            "42161": { "usdc": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" },
+            "8453": { "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
+            "43114": { "usdc": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E" }
+          }
+        }
+      }
+    },
+    "oneinch": {
+      "name": "1inch DEX Aggregator",
+      "website": "https://1inch.io",
+      "versions": {
+        "v6": {
+          "deployments": {
+            "1": { "aggregation_router": "0x111111125421cA6dc452d289314280a0f8842A65" },
+            "10": { "aggregation_router": "0x111111125421cA6dc452d289314280a0f8842A65" },
+            "137": { "aggregation_router": "0x111111125421cA6dc452d289314280a0f8842A65" },
+            "42161": { "aggregation_router": "0x111111125421cA6dc452d289314280a0f8842A65" },
+            "8453": { "aggregation_router": "0x111111125421cA6dc452d289314280a0f8842A65" },
+            "43114": { "aggregation_router": "0x111111125421cA6dc452d289314280a0f8842A65" }
+          }
+        }
+      }
+    },
+    "across": {
+      "name": "Across Protocol (Bridge)",
+      "website": "https://across.to",
+      "versions": {
+        "v2": {
+          "deployments": {
+            "1": { "spoke_pool": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5" },
+            "10": { "spoke_pool": "0x6f26Bf09B1C792e3228e5467807a900A503c0281" },
+            "137": { "spoke_pool": "0x9295ee1d8C5b022Be115A2AD3c30C72E34e7F096" },
+            "42161": { "spoke_pool": "0xe35e9842fceaCA96570B734083f4a58e8F7C5f2A" },
+            "8453": { "spoke_pool": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64" }
+          }
+        }
+      }
+    },
+    "seaport": {
+      "name": "OpenSea Seaport",
+      "website": "https://docs.opensea.io/docs/seaport",
+      "versions": {
+        "v1.6": {
+          "deployments": {
+            "1": { "seaport": "0x0000000000000068F116a894984e2DB1123eB395" },
+            "10": { "seaport": "0x0000000000000068F116a894984e2DB1123eB395" },
+            "137": { "seaport": "0x0000000000000068F116a894984e2DB1123eB395" },
+            "42161": { "seaport": "0x0000000000000068F116a894984e2DB1123eB395" },
+            "8453": { "seaport": "0x0000000000000068F116a894984e2DB1123eB395" }
+          }
+        }
+      }
+    }
+  }
+}

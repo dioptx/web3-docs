@@ -1,0 +1,19 @@
+[project]
+name = "web3-docs-mcp"
+version = "0.1.0"
+description = "MCP server for Web3 protocol documentation (EIPs, ERCs, BIPs, SIMDs)"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-bdd>=7.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+bdd_features_base_dir = "tests/"

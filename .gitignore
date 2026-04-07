@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Data (large, cloned on setup)
+data/repos/
+data/proposals.db
+
+# Secrets
+.env
+*.key
+
+# OS
+.DS_Store
