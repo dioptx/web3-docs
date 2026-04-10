@@ -12,6 +12,9 @@ from parser import (
     parse_polkadot_rfc,
     parse_stacks_sip,
     parse_avalanche_acp,
+    parse_cardano_cip,
+    parse_tezos_tzip,
+    parse_sui_sip,
 )
 from server import resolve_contract
 
@@ -155,6 +158,137 @@ Overhaul Subnet creation and management.
     def test_no_title_returns_none(self, tmp_file):
         f = tmp_file("| ACP | 99 |\n\nNo title row.", "99-test/README.md")
         assert parse_avalanche_acp(f) is None
+
+
+# --- Cardano CIP ---
+
+class TestCardanoCIP:
+    def test_parse_standard_cip(self, tmp_file):
+        f = tmp_file("""---
+CIP: 25
+Title: Media Token Metadata Standard
+Status: Active
+Category: Tokens
+Authors:
+  - Alessandro Konrad <alessandro.konrad@live.de>
+  - Smaug <smaug@pool.pm>
+Implementors: N/A
+Discussions:
+  - https://github.com/cardano-foundation/CIPs/pull/85
+Created: 2021-04-08
+License: CC-BY-4.0
+---
+
+## Abstract
+
+This proposal defines a Media Token Metadata Standard for Native Tokens.
+""", "CIP-0025/README.md")
+        result = parse_cardano_cip(f)
+
+        assert result is not None
+        assert result.id == "cip-25"
+        assert result.chain == "cardano"
+        assert result.type == "cip"
+        assert result.number == 25
+        assert "Media Token Metadata" in result.title
+        assert result.status == "Active"
+        assert result.category == "Tokens"
+        assert "Alessandro Konrad" in result.authors
+        assert "Smaug" in result.authors
+        assert result.created == "2021-04-08"
+
+    def test_no_number_returns_none(self, tmp_file):
+        f = tmp_file("""---
+Title: Some CIP
+Status: Draft
+---
+
+No CIP number field.
+""", "CIP-XXXX/README.md")
+        assert parse_cardano_cip(f) is None
+
+
+# --- Tezos TZIP ---
+
+class TestTezosTZIP:
+    def test_parse_standard_tzip(self, tmp_file):
+        f = tmp_file("""---
+tzip: 012
+title: FA2 - Multi-Asset Interface
+status: Final
+type: Financial Application (FA)
+author: Eugene Mishura (@e-mishura), Seb Mondet (@smondet)
+created: 2020-01-24
+---
+
+## Summary
+
+Multi-asset interface for Tezos smart contracts (FA2 standard).
+""", "tzip-12.md")
+        result = parse_tezos_tzip(f)
+
+        assert result is not None
+        assert result.id == "tzip-012"
+        assert result.chain == "tezos"
+        assert result.type == "tzip"
+        assert result.number == 12
+        assert "FA2" in result.title
+        assert result.status == "Final"
+        assert result.category == "Financial Application (FA)"
+        assert "Eugene Mishura" in result.authors
+
+    def test_no_number_returns_none(self, tmp_file):
+        f = tmp_file("""---
+title: Some Standard
+status: Draft
+---
+
+No tzip field.
+""", "proposal.md")
+        assert parse_tezos_tzip(f) is None
+
+
+# --- Sui SIP ---
+
+class TestSuiSIP:
+    def test_parse_standard_sui_sip(self, tmp_file):
+        f = tmp_file("""|   SIP-Number | 6 |
+|         ---: | :--- |
+|        Title | StakedSui Improvements |
+|  Description | Improvements to the StakedSui object. |
+|       Author | Kevin <github@aftermath.finance> |
+|         Type | Standard |
+|     Category | Framework |
+|      Created | 2023-06-07 |
+|       Status | Final |
+|     Requires | N/A |
+
+## Abstract
+
+This SIP specifies improvements to the StakedSui struct.
+""", "sip-6.md")
+        result = parse_sui_sip(f)
+
+        assert result is not None
+        assert result.id == "sui-sip-6"
+        assert result.chain == "sui"
+        assert result.type == "sui-sip"
+        assert result.number == 6
+        assert "StakedSui" in result.title
+        assert result.status == "Final"
+        assert result.category == "Framework"
+        assert "Kevin" in result.authors
+        assert result.created == "2023-06-07"
+
+    def test_no_number_returns_none(self, tmp_file):
+        f = tmp_file("""| Title | Some Proposal |
+| Status | Draft |
+
+## Abstract
+
+No SIP number.
+""", "readme.md")
+        assert parse_sui_sip(f) is None
 
 
 # --- Contract Registry ---

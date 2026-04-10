@@ -459,6 +459,9 @@ def _normalize_date(raw: str) -> str:
     raw = raw.strip()
     if not raw:
         return ""
+    # Reject placeholder/garbage values (backtick-padded empty fields from execution-specs)
+    if not re.search(r"\d", raw):
+        return ""
     # Already ISO-ish: 2024-03-13 or 2024-03-13 13:55:35
     iso_match = re.match(r"(\d{4}-\d{2}-\d{2})", raw)
     if iso_match:
@@ -471,7 +474,7 @@ def _normalize_date(raw: str) -> str:
         year = human_match.group(3)
         month = _MONTH_MAP.get(month_name, "01")
         return f"{year}-{month}-{day:02d}"
-    return raw
+    return ""
 
 
 def parse_fork_file(filepath: Path) -> ForkRecord | None:
@@ -605,7 +608,11 @@ def parse_cosmos_adr(filepath: Path) -> ProposalRecord | None:
 
 
 def parse_polkadot_rfc(filepath: Path) -> ProposalRecord | None:
-    """Parse Polkadot RFC. Format: # RFC-N: Title, then metadata table."""
+    """Parse Polkadot RFC. Format: # RFC-N: Title, then metadata table.
+
+    Status is tracked externally (on-chain Fellowship vote + Notion dashboard).
+    All RFCs merged into the text/ directory have been approved by the Fellowship.
+    """
     text = filepath.read_text(errors="replace")
 
     # Extract number from filename: 0001-agile-coretime.md
@@ -640,7 +647,7 @@ def parse_polkadot_rfc(filepath: Path) -> ProposalRecord | None:
         type="rfc",
         number=number,
         title=title,
-        status="",
+        status="Approved",
         category="",
         authors=authors,
         created=start_date,
@@ -648,6 +655,15 @@ def parse_polkadot_rfc(filepath: Path) -> ProposalRecord | None:
         description=description or _extract_abstract(body),
         body=body,
     )
+
+
+def _normalize_sip_status(raw: str) -> str:
+    """Normalize SIP status to consistent casing (upstream has mixed casing)."""
+    cleaned = raw.strip()
+    if not cleaned:
+        return ""
+    # Title-case hyphenated statuses: "Activation-in-Progress" → "Activation-In-Progress"
+    return "-".join(part.capitalize() for part in cleaned.split("-"))
 
 
 def parse_stacks_sip(filepath: Path) -> ProposalRecord | None:
@@ -681,7 +697,7 @@ def parse_stacks_sip(filepath: Path) -> ProposalRecord | None:
         type="sip",
         number=number,
         title=title,
-        status=meta.get("status", ""),
+        status=_normalize_sip_status(meta.get("status", "")),
         category=meta.get("type", meta.get("consideration", "")),
         authors=meta.get("author", ""),
         created=meta.get("created", ""),
@@ -750,6 +766,156 @@ def parse_avalanche_acp(filepath: Path) -> ProposalRecord | None:
     )
 
 
+def parse_cardano_cip(filepath: Path) -> ProposalRecord | None:
+    """Parse Cardano CIP with YAML frontmatter.
+
+    Cardano CIPs live in CIP-XXXX/README.md with standard YAML frontmatter
+    containing CIP number, Title, Status, Category, Authors (list), Created.
+    """
+    text = filepath.read_text(errors="replace")
+    meta, body = _split_yaml_frontmatter(text)
+    if not meta:
+        return None
+
+    number_raw = meta.get("CIP") or meta.get("cip")
+    if number_raw is None:
+        return None
+    try:
+        number = int(str(number_raw).strip())
+    except ValueError:
+        return None
+
+    authors_raw = meta.get("Authors") or meta.get("authors") or []
+    if isinstance(authors_raw, list):
+        authors = ", ".join(str(a).strip() for a in authors_raw)
+    else:
+        authors = str(authors_raw)
+
+    discussions_raw = meta.get("Discussions") or meta.get("discussions") or []
+    if isinstance(discussions_raw, list):
+        discussions = ", ".join(str(d) for d in discussions_raw[:3])
+    else:
+        discussions = str(discussions_raw)
+
+    return ProposalRecord(
+        id=f"cip-{number}",
+        chain="cardano",
+        type="cip",
+        number=number,
+        title=meta.get("Title") or meta.get("title") or "",
+        status=meta.get("Status") or meta.get("status") or "",
+        category=meta.get("Category") or meta.get("category") or "",
+        authors=authors,
+        created=str(meta.get("Created") or meta.get("created") or ""),
+        requires="",
+        description=_extract_abstract(body),
+        body=body,
+        discussions_to=discussions,
+    )
+
+
+def parse_tezos_tzip(filepath: Path) -> ProposalRecord | None:
+    """Parse Tezos TZIP with YAML frontmatter.
+
+    TZIPs use zero-padded tzip field (e.g., "012"), standard YAML fields.
+    Hosted on GitLab (gitlab.com/tezos/tzip).
+    Note: YAML parses unquoted "012" as octal (=10), so we extract from filename.
+    """
+    text = filepath.read_text(errors="replace")
+    meta, body = _split_yaml_frontmatter(text)
+    if not meta:
+        return None
+
+    # Extract number from filename (tzip-12.md) to avoid YAML octal parsing
+    num_match = re.search(r'tzip-(\d+)', filepath.name)
+    if not num_match:
+        # Fallback to frontmatter field
+        tzip_raw = meta.get("tzip")
+        if tzip_raw is None:
+            return None
+        num_match_str = str(tzip_raw).strip()
+        if not num_match_str.isdigit():
+            return None
+        number = int(num_match_str)
+    else:
+        number = int(num_match.group(1))
+
+    return ProposalRecord(
+        id=f"tzip-{number:03d}",
+        chain="tezos",
+        type="tzip",
+        number=number,
+        title=meta.get("title") or "",
+        status=meta.get("status") or "",
+        category=meta.get("type") or "",
+        authors=str(meta.get("author") or ""),
+        created=str(meta.get("created") or ""),
+        requires=str(meta.get("requires") or ""),
+        description=_extract_abstract(body),
+        body=body,
+        discussions_to=str(meta.get("discussions-to") or ""),
+        replaces=str(meta.get("replaces") or ""),
+        superseded_by=str(meta.get("superseded-by") or ""),
+    )
+
+
+def parse_sui_sip(filepath: Path) -> ProposalRecord | None:
+    """Parse Sui SIP with markdown table metadata.
+
+    Sui SIPs use pipe-delimited table rows at the top (same pattern as
+    Polkadot RFCs and Avalanche ACPs). Type is 'sui-sip' to avoid conflict
+    with Stacks SIPs.
+    """
+    text = filepath.read_text(errors="replace")
+
+    # Extract metadata from table rows
+    meta: dict[str, str] = {}
+    for match in re.finditer(r'\|\s*\*?\*?([^|*]+?)\*?\*?\s*\|\s*(.+?)\s*\|', text):
+        key = match.group(1).strip().lower()
+        val = match.group(2).strip()
+        meta[key] = val
+
+    # Get SIP number from table or filename
+    number_raw = meta.get("sip-number", "")
+    if not number_raw or not number_raw.strip().isdigit():
+        num_match = re.search(r'sip-(\d+)', filepath.name)
+        if not num_match:
+            return None
+        number_raw = num_match.group(1)
+
+    try:
+        number = int(number_raw)
+    except ValueError:
+        return None
+
+    title = meta.get("title", "")
+    if not title:
+        return None
+
+    # Clean markdown escapes from author field
+    authors = meta.get("author", "")
+    authors = authors.replace("\\<", "<").replace("\\>", ">")
+    authors = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', authors)
+
+    body = text.strip()
+
+    return ProposalRecord(
+        id=f"sui-sip-{number}",
+        chain="sui",
+        type="sui-sip",
+        number=number,
+        title=title,
+        status=meta.get("status", ""),
+        category=meta.get("category", meta.get("type", "")),
+        authors=authors,
+        created=meta.get("created", ""),
+        requires=meta.get("requires", ""),
+        description=meta.get("description", "") or _extract_abstract(body),
+        body=body,
+        discussions_to=meta.get("comments-uri", ""),
+    )
+
+
 # --- Source Configuration ---
 
 
@@ -809,5 +975,26 @@ SOURCES = [
         "branch": "main",
         "glob": "ACPs/*/README.md",
         "parser": parse_avalanche_acp,
+    },
+    {
+        "name": "Cardano CIPs",
+        "repo": "https://github.com/cardano-foundation/CIPs.git",
+        "branch": "master",
+        "glob": "CIP-*/README.md",
+        "parser": parse_cardano_cip,
+    },
+    {
+        "name": "Tezos TZIPs",
+        "repo": "https://gitlab.com/tezos/tzip.git",
+        "branch": "master",
+        "glob": "proposals/tzip-*/tzip-*.md",
+        "parser": parse_tezos_tzip,
+    },
+    {
+        "name": "Sui SIPs",
+        "repo": "https://github.com/sui-foundation/sips.git",
+        "branch": "main",
+        "glob": "sips/sip-*.md",
+        "parser": parse_sui_sip,
     },
 ]

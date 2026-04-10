@@ -176,6 +176,14 @@ class ProposalDB:
     def commit(self):
         self.conn.commit()
 
+    # Combined upgrade aliases (consensus + execution layer names)
+    _FORK_ALIASES = {
+        "pectra": "prague",
+        "dencun": "cancun",
+        "shapella": "shanghai",
+        "the merge": "paris",
+    }
+
     def search(self, query: str, limit: int = 10) -> list[dict]:
         # Check for exact ID match first (eip-1559, bip-341, etc.)
         exact = self.conn.execute(
@@ -183,6 +191,13 @@ class ProposalDB:
         ).fetchone()
         if exact:
             return [self._row_to_meta(exact)]
+
+        # Expand fork aliases (e.g. "pectra" → "prague", "dencun" → "cancun")
+        query_lower = query.lower().strip()
+        for alias, canonical in self._FORK_ALIASES.items():
+            if alias in query_lower:
+                query = query_lower.replace(alias, canonical)
+                break
 
         # FTS5 search with bm25 ranking
         # Column order: id(0), title(1), description(2), body(3), authors(4)

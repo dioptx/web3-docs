@@ -29,14 +29,15 @@ CHAIN_NAMES = {
 mcp = FastMCP(
     "web3-docs",
     instructions=(
-        "Blockchain protocol specification server. 1,500+ proposals across 7 chains "
+        "Blockchain protocol specification server. 1,700+ proposals across 10 chains "
         "plus canonical contract addresses for 19 protocols.\n\n"
         "USE THIS when the developer:\n"
-        "- Mentions EIPs, BIPs, SIMDs, ERCs, or protocol upgrade names (London, Taproot, Cancun)\n"
+        "- Mentions EIPs, BIPs, SIMDs, ERCs, CIPs, TZIPs, or protocol upgrade names (London, Taproot, Cancun)\n"
         "- Asks about opcode behavior, precompile addresses, or EVM changes\n"
         "- Needs canonical contract addresses (Uniswap, Aave, WETH, ENS, etc.)\n"
         "- Asks which fork introduced a feature, or whether an EIP is live\n"
-        "- Works with Cosmos ADRs, Polkadot RFCs, Stacks SIPs, Avalanche ACPs\n\n"
+        "- Works with Cosmos ADRs, Polkadot RFCs, Stacks SIPs, Avalanche ACPs\n"
+        "- Works with Cardano CIPs, Tezos TZIPs, Sui SIPs\n\n"
         "DO NOT USE for: live on-chain data, gas prices, block explorers, library API docs "
         "(use context7 instead), or general web3 tutorials.\n\n"
         "Workflow: resolve_proposal → find ID → query_protocol_docs → read spec. "
@@ -51,12 +52,14 @@ db = ProposalDB(DB_PATH)
 def resolve_proposal(query: str) -> str:
     """Find blockchain protocol proposals by keyword, concept, or proposal number.
 
-    Searches across EIPs, ERCs, BIPs, SIMDs, Cosmos ADRs, Polkadot RFCs, Stacks SIPs, Avalanche ACPs.
+    Searches across EIPs, ERCs, BIPs, SIMDs, Cosmos ADRs, Polkadot RFCs, Stacks SIPs,
+    Avalanche ACPs, Cardano CIPs, Tezos TZIPs, Sui SIPs.
     Returns ranked results with fork info and status. Use the returned ID with query_protocol_docs to read the full spec.
 
     Args:
         query: What to search for. Accepts concept names, keywords, proposal IDs, fork names, or opcode names.
-               Examples: "fee market", "ERC-721", "taproot", "blob transactions", "PUSH0", "London fork"
+               Examples: "fee market", "ERC-721", "taproot", "blob transactions", "PUSH0", "London fork",
+               "CIP-25", "FA2 token", "sui object"
     """
     results = db.search(query, limit=5)
     if not results:
