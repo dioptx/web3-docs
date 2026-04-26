@@ -58,8 +58,12 @@ mcp = FastMCP(
         "- Works with Cardano CIPs, Tezos TZIPs, Sui SIPs\n\n"
         "DO NOT USE for: live on-chain data, gas prices, block explorers, library API docs "
         "(use context7 instead), or general web3 tutorials.\n\n"
-        "Workflow: resolve_proposal → find ID → query_protocol_docs → read spec. "
-        "For contract addresses: resolve_contract directly."
+        "Workflow:\n"
+        "- resolve_proposal → find ID → query_protocol_docs → read spec.\n"
+        "  Pass `chain=` when a keyword could match multiple chains (e.g. \"staking\" → ethereum vs cosmos).\n"
+        "- list_fork_proposals(fork_name) for \"what's in Cancun?\" / \"BIPs activated with Taproot?\".\n"
+        "- resolve_contract for canonical deployed addresses (no preceding lookup needed).\n\n"
+        "Tools error with a clear message if the index hasn't been built yet — run `--sync` first."
     ),
 )
 
@@ -67,8 +71,22 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 db = ProposalDB(DB_PATH)
 
 
+def _log(msg: str) -> None:
+    """Write to stderr so we never corrupt the stdio JSON-RPC channel."""
+    print(msg, file=sys.stderr, flush=True)
+
+
+_EMPTY_DB_MESSAGE = (
+    "Index is empty — the one-time sync hasn't been run yet.\n"
+    "Run:\n"
+    "  uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp --sync\n"
+    "(or `python server.py --sync` from a source checkout). "
+    "Sync takes ~2 min and indexes 1,767 proposals across 10 chains."
+)
+
+
 @mcp.tool()
-def resolve_proposal(query: str) -> str:
+def resolve_proposal(query: str, chain: str = "") -> str:
     """Find blockchain protocol proposals by keyword, concept, or proposal number.
 
     Searches across EIPs, ERCs, BIPs, SIMDs, Cosmos ADRs, Polkadot RFCs, Stacks SIPs,
@@ -79,9 +97,21 @@ def resolve_proposal(query: str) -> str:
         query: What to search for. Accepts concept names, keywords, proposal IDs, fork names, or opcode names.
                Examples: "fee market", "ERC-721", "taproot", "blob transactions", "PUSH0", "London fork",
                "CIP-25", "FA2 token", "sui object"
+        chain: Optional chain filter for disambiguation. One of: ethereum, bitcoin, solana,
+               cosmos, polkadot, stacks, avalanche, cardano, tezos, sui. Use when a keyword
+               (e.g. "staking", "governance") could match multiple chains. Omit to search all.
     """
-    results = db.search(query, limit=5)
+    if db.is_empty():
+        return _EMPTY_DB_MESSAGE
+
+    chain_filter = chain.strip().lower() or None
+    results = db.search(query, limit=5, chain=chain_filter)
     if not results:
+        if chain_filter:
+            return (
+                f"No proposals matched '{query}' on chain '{chain_filter}'. "
+                "Try without the chain filter or different keywords."
+            )
         return "No proposals found. Try different keywords."
 
     lines = []
@@ -152,6 +182,52 @@ def resolve_contract(protocol: str, chain_id: str = "") -> str:
 
 
 @mcp.tool()
+def list_fork_proposals(fork_name: str) -> str:
+    """List every proposal activated by a named blockchain fork.
+
+    The unique value of this server: maps proposals → forks. Use this to answer
+    "What's in Cancun?", "Which BIPs activated with Taproot?", "What does Shanghai
+    include?" — anything that would otherwise require manually cross-referencing
+    fork meta-EIPs.
+
+    Covers Ethereum forks (Frontier through Prague/Pectra) and Bitcoin soft-fork
+    activations (P2SH, BIP66, CSV, SegWit, Taproot).
+
+    Args:
+        fork_name: Fork name. Accepts canonical and consensus-layer aliases.
+                   Examples: "Cancun", "Dencun", "Shanghai", "Shapella", "Prague",
+                   "Pectra", "Paris", "The Merge", "Taproot", "SegWit", "London", "Berlin".
+    """
+    if db.is_empty():
+        return _EMPTY_DB_MESSAGE
+
+    info = db.list_fork_proposals(fork_name)
+    if info is None:
+        return (
+            f"Unknown fork: '{fork_name}'. Try one of: London, Berlin, Cancun "
+            "(Dencun), Shanghai (Shapella), Prague (Pectra), Paris (The Merge), "
+            "Taproot, SegWit, P2SH, …"
+        )
+
+    header = info["name"].replace("_", " ").title()
+    metadata: list[str] = []
+    if info["mainnet_date"]:
+        metadata.append(f"activated {info['mainnet_date']}")
+    if info["activation_block"]:
+        metadata.append(f"block {info['activation_block']:,}")
+    if metadata:
+        header = f"{header} — {' · '.join(metadata)}"
+
+    if not info["proposals"]:
+        return f"{header}\n(no matching proposals indexed — run --sync to refresh)"
+
+    lines = [header, ""]
+    for p in info["proposals"]:
+        lines.append(f"{p['id']} | {p['title']} | {p['chain']}/{p['status']}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
 def query_protocol_docs(proposal_id: str, query: str = "") -> str:
     """Read the specification of a blockchain protocol proposal.
 
@@ -163,6 +239,9 @@ def query_protocol_docs(proposal_id: str, query: str = "") -> str:
         proposal_id: Proposal ID from resolve_proposal. Examples: "eip-1559", "bip-341", "erc-20"
         query: Optional focus question. Examples: "base fee calculation", "security", "backwards compatibility"
     """
+    if db.is_empty():
+        return _EMPTY_DB_MESSAGE
+
     proposal = db.get(proposal_id)
     if not proposal:
         return f"Not found: '{proposal_id}'. Use resolve_proposal to search."
@@ -273,21 +352,21 @@ def sync():
 
         # Clone or pull
         if repo_dir.exists():
-            print(f"Updating {name}...")
+            _log(f"Updating {name}...")
             result = subprocess.run(
                 ["git", "-C", str(repo_dir), "pull", "--ff-only"],
                 capture_output=True, text=True,
             )
             if result.returncode != 0:
-                print(f"  Warning: git pull failed for {name}: {result.stderr.strip()}")
+                _log(f"  Warning: git pull failed for {name}: {result.stderr.strip()}")
         else:
-            print(f"Cloning {name}...")
+            _log(f"Cloning {name}...")
             result = subprocess.run(
                 ["git", "clone", "--depth", "1", "--branch", branch, repo_url, str(repo_dir)],
                 capture_output=True, text=True,
             )
             if result.returncode != 0:
-                print(f"  Error: git clone failed for {name}: {result.stderr.strip()}")
+                _log(f"  Error: git clone failed for {name}: {result.stderr.strip()}")
                 continue
 
         # Parse proposals
@@ -312,10 +391,10 @@ def sync():
                     db.upsert(record)
                     count += 1
             except Exception as e:
-                print(f"  Warning: failed to parse {filepath.name}: {e}")
+                _log(f"  Warning: failed to parse {filepath.name}: {e}")
 
         total_counts[name] = count
-        print(f"  Indexed {count} {name}")
+        _log(f"  Indexed {count} {name}")
 
     # --- Fork mapping ---
     _sync_forks()
@@ -327,10 +406,10 @@ def sync():
 
     summary = ", ".join(f"{count} {name}" for name, count in total_counts.items())
     total = sum(total_counts.values())
-    print(f"\nTotal: {total} proposals indexed ({summary})")
+    _log(f"\nTotal: {total} proposals indexed ({summary})")
 
     stats = db.stats()
-    print(f"Database stats: {json.dumps(stats)}")
+    _log(f"Database stats: {json.dumps(stats)}")
 
 
 def _sync_forks():
@@ -339,13 +418,13 @@ def _sync_forks():
 
     # Clone or pull
     if specs_dir.exists():
-        print("Updating execution-specs...")
+        _log("Updating execution-specs...")
         subprocess.run(
             ["git", "-C", str(specs_dir), "pull", "--ff-only"],
             capture_output=True,
         )
     else:
-        print("Cloning execution-specs...")
+        _log("Cloning execution-specs...")
         subprocess.run(
             ["git", "clone", "--depth", "1",
              "https://github.com/ethereum/execution-specs.git",
@@ -355,7 +434,7 @@ def _sync_forks():
 
     forks_dir = specs_dir / "src" / "ethereum" / "forks"
     if not forks_dir.exists():
-        print("  Warning: forks directory not found in execution-specs")
+        _log("  Warning: forks directory not found in execution-specs")
         return
 
     fork_count = 0
@@ -381,11 +460,11 @@ def _sync_forks():
 
             fork_count += 1
         except Exception as e:
-            print(f"  Warning: failed to parse fork {init_file.parent.name}: {e}")
+            _log(f"  Warning: failed to parse fork {init_file.parent.name}: {e}")
 
     if fork_count < 10:
-        print(f"  WARNING: only {fork_count} forks found — execution-specs structure may have changed")
-    print(f"  Mapped {eip_mapped} EIPs across {fork_count} forks")
+        _log(f"  WARNING: only {fork_count} forks found — execution-specs structure may have changed")
+    _log(f"  Mapped {eip_mapped} EIPs across {fork_count} forks")
 
     # Fill gaps for early Ethereum forks not fully in execution-specs
     _sync_early_ethereum_forks()
@@ -434,7 +513,7 @@ def _backfill_descriptions():
             )
             count += 1
     if count:
-        print(f"  Backfilled {count} descriptions")
+        _log(f"  Backfilled {count} descriptions")
 
 
 def _sync_early_ethereum_forks():
@@ -454,7 +533,7 @@ def _sync_early_ethereum_forks():
             if proposal and not proposal.get("fork"):
                 db.set_fork_for_eip(eip_num, fork_name, date)
                 count += 1
-    print(f"  Filled {count} early fork mappings across {len(_ETHEREUM_EARLY_FORKS)} forks")
+    _log(f"  Filled {count} early fork mappings across {len(_ETHEREUM_EARLY_FORKS)} forks")
 
 
 # Canonical Bitcoin soft fork activations and their BIPs
@@ -486,7 +565,7 @@ def _sync_bitcoin_activations():
                 (fork_name, date, f"bip-{bip_num}"),
             )
             count += 1
-    print(f"  Mapped {count} BIPs across {len(_BITCOIN_ACTIVATIONS)} Bitcoin activations")
+    _log(f"  Mapped {count} BIPs across {len(_BITCOIN_ACTIVATIONS)} Bitcoin activations")
 
 
 def main():

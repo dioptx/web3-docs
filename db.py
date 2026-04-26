@@ -184,12 +184,16 @@ class ProposalDB:
         "the merge": "paris",
     }
 
-    def search(self, query: str, limit: int = 10) -> list[dict]:
+    def is_empty(self) -> bool:
+        """True if the proposals table has no rows (sync hasn't been run)."""
+        return self.conn.execute("SELECT 1 FROM proposals LIMIT 1").fetchone() is None
+
+    def search(self, query: str, limit: int = 10, chain: str | None = None) -> list[dict]:
         # Check for exact ID match first (eip-1559, bip-341, etc.)
         exact = self.conn.execute(
             "SELECT * FROM proposals WHERE id = ?", (query.lower().strip(),)
         ).fetchone()
-        if exact:
+        if exact and (chain is None or exact["chain"].lower() == chain.lower()):
             return [self._row_to_meta(exact)]
 
         # Expand fork aliases (e.g. "pectra" → "prague", "dencun" → "cancun")
@@ -206,15 +210,26 @@ class ProposalDB:
         if not safe_query:
             return []
 
-        rows = self.conn.execute(
-            """SELECT p.*, bm25(proposals_fts, 0, 10.0, 5.0, 1.0, 2.0) as rank
-               FROM proposals_fts
-               JOIN proposals p ON proposals_fts.rowid = p.rowid
-               WHERE proposals_fts MATCH ?
-               ORDER BY rank
-               LIMIT ?""",
-            (safe_query, limit),
-        ).fetchall()
+        if chain:
+            rows = self.conn.execute(
+                """SELECT p.*, bm25(proposals_fts, 0, 10.0, 5.0, 1.0, 2.0) as rank
+                   FROM proposals_fts
+                   JOIN proposals p ON proposals_fts.rowid = p.rowid
+                   WHERE proposals_fts MATCH ? AND p.chain = ?
+                   ORDER BY rank
+                   LIMIT ?""",
+                (safe_query, chain.lower(), limit),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                """SELECT p.*, bm25(proposals_fts, 0, 10.0, 5.0, 1.0, 2.0) as rank
+                   FROM proposals_fts
+                   JOIN proposals p ON proposals_fts.rowid = p.rowid
+                   WHERE proposals_fts MATCH ?
+                   ORDER BY rank
+                   LIMIT ?""",
+                (safe_query, limit),
+            ).fetchall()
 
         return [self._row_to_meta(row) for row in rows]
 
@@ -294,6 +309,43 @@ class ProposalDB:
             "SELECT * FROM forks WHERE name = ?", (name.lower(),)
         ).fetchone()
         return dict(row) if row else None
+
+    def list_fork_proposals(self, fork_name: str) -> dict | None:
+        """Return fork metadata + every proposal indexed under that fork.
+
+        Handles consensus/execution-layer aliases (pectra→prague, dencun→cancun,
+        shapella→shanghai, the merge→paris) and matches the canonical fork name
+        whether stored as ``"taproot"`` or ``"the merge"``. Returns None when
+        the fork is unknown (caller should suggest the supported set).
+        """
+        normalised = fork_name.lower().strip()
+        normalised = self._FORK_ALIASES.get(normalised, normalised)
+        space_form = normalised.replace("_", " ")
+        underscore_form = normalised.replace(" ", "_")
+        fork = self.conn.execute(
+            "SELECT * FROM forks WHERE name = ? OR name = ?",
+            (space_form, underscore_form),
+        ).fetchone()
+        if fork is None:
+            return None
+
+        eip_list = json.loads(fork["eip_list"]) if fork["eip_list"] else []
+        proposals: list[dict] = []
+        if eip_list:
+            ids = [f"{prefix}-{n}" for n in eip_list for prefix in ("eip", "erc", "bip")]
+            placeholders = ",".join("?" * len(ids))
+            rows = self.conn.execute(
+                f"SELECT * FROM proposals WHERE id IN ({placeholders}) ORDER BY chain, number",
+                ids,
+            ).fetchall()
+            proposals = [self._row_to_meta(row) for row in rows]
+
+        return {
+            "name": fork["name"],
+            "activation_block": fork["activation_block"],
+            "mainnet_date": fork["mainnet_date"],
+            "proposals": proposals,
+        }
 
     def close(self):
         self.conn.close()

@@ -90,10 +90,12 @@ Restart your agent, then try **"Use web3-docs to look up EIP-1559."**
 |---|---|
 | "What's the fee market in EIP-4844?" | `resolve_proposal` → `query_protocol_docs(query="fee")` |
 | "Show me Cosmos ADR-001." | `resolve_proposal` → `query_protocol_docs` |
+| "What's in Cancun?" | `list_fork_proposals("Cancun")` |
+| "Which BIPs activated with Taproot?" | `list_fork_proposals("Taproot")` |
 | "Uniswap router on Base?" | `resolve_contract(protocol="uniswap", chain_id="8453")` |
-| "Which BIPs activated with Taproot?" | `resolve_proposal("Taproot")` |
-| "Cardano CIP for native tokens?" | `resolve_proposal("native tokens")` → cip-25 |
+| "Cardano CIP for native tokens?" | `resolve_proposal("native tokens", chain="cardano")` → cip-25 |
 | "ERC-4337 EntryPoint address on Arbitrum?" | `resolve_contract("erc4337", "42161")` |
+| "Staking on Cosmos vs Polkadot?" | `resolve_proposal("staking", chain="cosmos")` then `chain="polkadot"` |
 
 <div align="center">
 
@@ -107,8 +109,9 @@ Restart your agent, then try **"Use web3-docs to look up EIP-1559."**
 
 | Tool | What it does |
 |---|---|
-| `resolve_proposal(query)` | Fuzzy-find a proposal by keyword, fork name, opcode, or ID. Returns top-5 ranked hits with chain/status/fork. |
+| `resolve_proposal(query, chain?)` | Fuzzy-find a proposal by keyword, fork name, opcode, or ID. Returns top-5 ranked hits with chain/status/fork. Pass `chain=` (`ethereum`, `bitcoin`, `cosmos`, …) to disambiguate when keywords match multiple chains. |
 | `query_protocol_docs(proposal_id, query?)` | Read the full spec body. With `query`, returns only the most relevant sections (token-budgeted). Includes metadata header (status, fork, activation date, authors). |
+| `list_fork_proposals(fork_name)` | List every proposal activated by a named fork. Answers "what's in Cancun?" / "BIPs activated with Taproot?". Handles aliases (Pectra → Prague, Dencun → Cancun, Shapella → Shanghai, The Merge → Paris). |
 | `resolve_contract(protocol, chain_id?)` | Look up canonical deployed addresses. 19 protocols × major EVM chains. Omit `chain_id` for all chains. |
 
 ## Sources
