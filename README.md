@@ -12,6 +12,8 @@ Ask Claude about EIPs, BIPs, ADRs, CIPs, RFCs and canonical contract addresses â
 
 ![web3-docs MCP demo](docs/assets/demo.gif)
 
+<sub>Or replay in your own terminal: <code>asciinema play <a href="docs/assets/demo.cast">docs/assets/demo.cast</a></code></sub>
+
 </div>
 
 ## Why
