@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -13,7 +14,24 @@ from mcp.server.fastmcp import FastMCP
 from db import ProposalDB
 from parser import SOURCES, enrich_record, parse_fork_file
 
-DATA_DIR = Path(__file__).parent / "data"
+
+def _resolve_data_dir() -> Path:
+    """Pick a writeable data dir.
+
+    Priority: $WEB3_DOCS_DATA_DIR, then platform user-cache dir, then ./data
+    (the last only when running from a source checkout).
+    """
+    override = os.environ.get("WEB3_DOCS_DATA_DIR")
+    if override:
+        return Path(override).expanduser()
+    try:
+        from platformdirs import user_cache_dir
+        return Path(user_cache_dir("web3-docs-mcp", "dioptx"))
+    except ImportError:
+        return Path.home() / ".cache" / "web3-docs-mcp"
+
+
+DATA_DIR = _resolve_data_dir()
 REPOS_DIR = DATA_DIR / "repos"
 DB_PATH = DATA_DIR / "proposals.db"
 CONTRACTS_PATH = Path(__file__).parent / "contracts.json"
@@ -45,6 +63,7 @@ mcp = FastMCP(
     ),
 )
 
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 db = ProposalDB(DB_PATH)
 
 

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.dioptx/web3-docs",
+  "description": "MCP server for Web3 protocol documentation — EIPs, ERCs, BIPs, SIMDs, Cosmos ADRs, Polkadot RFCs, Stacks SIPs, Avalanche ACPs, Cardano CIPs, Tezos TZIPs, Sui SIPs, plus a canonical contract registry.",
+  "version": "0.2.0",
+  "repository": {
+    "url": "https://github.com/dioptx/web3-docs",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "web3-docs-mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

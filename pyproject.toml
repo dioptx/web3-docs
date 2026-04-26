@@ -1,17 +1,85 @@
 [project]
 name = "web3-docs-mcp"
-version = "0.1.0"
-description = "MCP server for Web3 protocol documentation (EIPs, ERCs, BIPs, SIMDs)"
+version = "0.2.0"
+description = "MCP server for Web3 protocol documentation — EIPs, ERCs, BIPs, SIMDs, Cosmos ADRs, Polkadot RFCs, Stacks SIPs, Avalanche ACPs, Cardano CIPs, Tezos TZIPs, Sui SIPs, plus a canonical contract registry"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "dioptx", email = "dennis.petta@gmail.com" },
+]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "web3",
+    "ethereum",
+    "bitcoin",
+    "solana",
+    "cosmos",
+    "polkadot",
+    "blockchain",
+    "eips",
+    "ercs",
+    "bips",
+    "smart-contracts",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "mcp[cli]>=1.0.0",
     "pyyaml>=6.0",
+    "platformdirs>=4.0",
 ]
 
 [project.optional-dependencies]
 test = [
     "pytest>=7.0",
     "pytest-bdd>=7.0",
+]
+
+[project.scripts]
+web3-docs-mcp = "server:main"
+
+[project.urls]
+Homepage = "https://github.com/dioptx/web3-docs"
+Repository = "https://github.com/dioptx/web3-docs"
+Issues = "https://github.com/dioptx/web3-docs/issues"
+Changelog = "https://github.com/dioptx/web3-docs/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "server.py",
+    "parser.py",
+    "db.py",
+    "contracts.json",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "server.py",
+    "parser.py",
+    "db.py",
+    "contracts.json",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "tests/",
 ]
 
 [tool.pytest.ini_options]

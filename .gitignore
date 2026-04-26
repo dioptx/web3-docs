@@ -4,6 +4,8 @@ __pycache__/
 .venv/
 .pytest_cache/
 *.egg-info/
+build/
+dist/
 
 # Data (large, cloned on setup)
 data/repos/
