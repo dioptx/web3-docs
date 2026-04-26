@@ -154,7 +154,7 @@ Contract registry covers: `aave`, `across`, `chainlink`, `compound`, `create2_de
 
 ## Troubleshooting
 
-**"No proposals found" on any query.** You haven't run `--sync` yet. Run:
+**"Index is empty" on any tool call.** You haven't run `--sync` yet. Run:
 
 ```bash
 uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp --sync
@@ -171,7 +171,7 @@ uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp --sync
 ```bash
 git clone https://github.com/dioptx/web3-docs.git && cd web3-docs
 uv sync --extra test
-uv run pytest                  # 90 tests, BDD + unit
+uv run pytest                  # 98 tests, BDD + unit
 uv build                       # build wheel + sdist
 ```
 
