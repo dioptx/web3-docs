@@ -3,7 +3,7 @@
 # web3-docs
 
 **One MCP server, eleven protocol-spec repos.**
-Ask Claude about EIPs, BIPs, ADRs, CIPs, RFCs and canonical contract addresses — without ever leaving your editor.
+Ask your coding agent about EIPs, BIPs, ADRs, CIPs, RFCs and canonical contract addresses — without ever leaving your editor. Works with any [MCP](https://modelcontextprotocol.io/)-compatible client: Claude Code, Cursor, Windsurf, Cline, Zed, Continue, OpenCode, Codex, and more.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -18,29 +18,37 @@ Ask Claude about EIPs, BIPs, ADRs, CIPs, RFCs and canonical contract addresses �
 
 ## Why
 
-Specs for blockchain protocols live across **eleven different upstream repos** on three different forges. Every time you need to look up EIP-4844, BIP-340, CIP-25, or which fork shipped `PUSH0`, you're tab-hunting through GitHub. This MCP indexes them all locally with FTS5 ranking — **1,767 proposals across 10 chains** plus addresses for 19 protocols on Ethereum, Arbitrum, Base, Optimism, Polygon, and more — so Claude can answer with the *actual spec text*, not a hallucinated paraphrase.
+Specs for blockchain protocols live across **eleven different upstream repos** on three different forges. Every time you need to look up EIP-4844, BIP-340, CIP-25, or which fork shipped `PUSH0`, you're tab-hunting through GitHub. This MCP indexes them all locally with FTS5 ranking — **1,767 proposals across 10 chains** plus addresses for 19 protocols on Ethereum, Arbitrum, Base, Optimism, Polygon, and more — so your agent answers with the *actual spec text*, not a hallucinated paraphrase.
 
 ## Install
 
 > **Requires:** Python 3.11+ · [`uv`](https://docs.astral.sh/uv/) (provides `uvx`) · ~500 MB free disk for the index · `git` on PATH (used by `--sync`).
 
-### Claude Code
-
-```bash
-claude mcp add web3-docs -- uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp
-```
-
-Build the index (one-time, ~2 min, ~500 MB in `~/.cache/web3-docs-mcp/`):
+### Step 1 — build the index (one-time, ~2 min, ~500 MB in `~/.cache/web3-docs-mcp/`)
 
 ```bash
 uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp --sync
 ```
 
-That's it. Restart Claude Code and try **"Use web3-docs to look up EIP-1559."**
+### Step 2 — register the server with your agent
 
-### Cursor / Windsurf / generic MCP client
+The launch command is identical across clients:
 
-Add to your client's MCP config (`~/.cursor/mcp.json`, etc.):
+```text
+uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp
+```
+
+<details><summary><b>Claude Code</b></summary>
+
+```bash
+claude mcp add web3-docs -- uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp
+```
+
+</details>
+
+<details><summary><b>Cursor · Windsurf · Cline · Continue · Zed · generic stdio MCP client</b></summary>
+
+Add to the client's MCP config (`~/.cursor/mcp.json`, `~/.codeium/windsurf/mcp_config.json`, `cline_mcp_settings.json`, the `mcpServers` block in your Zed `settings.json`, etc.):
 
 ```json
 {
@@ -53,7 +61,17 @@ Add to your client's MCP config (`~/.cursor/mcp.json`, etc.):
 }
 ```
 
-### From source
+</details>
+
+<details><summary><b>OpenAI Codex CLI</b></summary>
+
+```bash
+codex mcp add web3-docs -- uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp
+```
+
+</details>
+
+<details><summary><b>From source (development)</b></summary>
 
 ```bash
 git clone https://github.com/dioptx/web3-docs.git && cd web3-docs
@@ -62,9 +80,13 @@ uv run python server.py --sync   # build index
 uv run python server.py          # run stdio server
 ```
 
+</details>
+
+Restart your agent, then try **"Use web3-docs to look up EIP-1559."**
+
 ## What you can ask
 
-| Ask Claude… | Tool chain |
+| Ask your agent… | Tool chain |
 |---|---|
 | "What's the fee market in EIP-4844?" | `resolve_proposal` → `query_protocol_docs(query="fee")` |
 | "Show me Cosmos ADR-001." | `resolve_proposal` → `query_protocol_docs` |
@@ -72,6 +94,14 @@ uv run python server.py          # run stdio server
 | "Which BIPs activated with Taproot?" | `resolve_proposal("Taproot")` |
 | "Cardano CIP for native tokens?" | `resolve_proposal("native tokens")` → cip-25 |
 | "ERC-4337 EntryPoint address on Arbitrum?" | `resolve_contract("erc4337", "42161")` |
+
+<div align="center">
+
+![web3-docs contract lookup demo](docs/assets/demo2.gif)
+
+<sub>Multi-chain canonical addresses, no etherscan tabs.</sub>
+
+</div>
 
 ## Tools
 
@@ -107,9 +137,9 @@ Contract registry covers: `aave`, `across`, `chainlink`, `compound`, `create2_de
 
 **…just `gh search` or WebFetch each spec on demand?** You'd burn tokens on HTML markup and pay a network round-trip per query. `web3-docs` indexes everything once into local SQLite + FTS5 — sub-millisecond ranked search, plain-text bodies, no rate limits, works offline.
 
-**…one MCP per chain?** You'd manage eleven separate servers and Claude wouldn't know which to call. One unified tool with a single `resolve_proposal` entry point lets the model find the right doc by *concept* (e.g. "blob transactions" → `eip-4844`) rather than guessing the source.
+**…one MCP per chain?** You'd manage eleven separate servers and your agent wouldn't know which to call. One unified tool with a single `resolve_proposal` entry point lets the model find the right doc by *concept* (e.g. "blob transactions" → `eip-4844`) rather than guessing the source.
 
-**…ask Claude directly without an MCP?** Models hallucinate spec details — wrong fork, wrong gas costs, wrong opcode numbers. This server returns the *actual* upstream text with metadata (status, fork, activation date) so Claude can quote it verbatim.
+**…ask the model directly without an MCP?** Models hallucinate spec details — wrong fork, wrong gas costs, wrong opcode numbers. This server returns the *actual* upstream text with metadata (status, fork, activation date) so the agent can quote it verbatim.
 
 **…use a vector DB?** Spec corpora are small (≈ 1.7K docs), domain vocabulary is precise (`PUSH0`, `BLOBHASH`, `taproot`), and exact-term matching beats embeddings here. FTS5 gives BM25 ranking with zero infrastructure.
 
