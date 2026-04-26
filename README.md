@@ -114,6 +114,14 @@ Restart your agent, then try **"Use web3-docs to look up EIP-1559."**
 | `list_fork_proposals(fork_name)` | List every proposal activated by a named fork. Answers "what's in Cancun?" / "BIPs activated with Taproot?". Handles aliases (Pectra → Prague, Dencun → Cancun, Shapella → Shanghai, The Merge → Paris). |
 | `resolve_contract(protocol, chain_id?)` | Look up canonical deployed addresses. 19 protocols × major EVM chains. Omit `chain_id` for all chains. |
 
+<div align="center">
+
+![web3-docs fork lookup demo](docs/assets/demo3.gif)
+
+<sub>Fork → all proposals it shipped, then drill into one. Two tool calls instead of an afternoon of tab-hunting.</sub>
+
+</div>
+
 ## Sources
 
 11 upstream repos, all synced via `--sync`:
