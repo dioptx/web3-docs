@@ -5,6 +5,7 @@
 **One MCP server, eleven protocol-spec repos.**
 Ask your coding agent about EIPs, BIPs, ADRs, CIPs, RFCs and canonical contract addresses — without ever leaving your editor. Works with any [MCP](https://modelcontextprotocol.io/)-compatible client: Claude Code, Cursor, Windsurf, Cline, Zed, Continue, OpenCode, Codex, and more.
 
+[![PyPI version](https://img.shields.io/pypi/v/web3-docs-mcp.svg)](https://pypi.org/project/web3-docs-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-stdio-green.svg)](https://modelcontextprotocol.io/)
@@ -27,7 +28,7 @@ Specs for blockchain protocols live across **eleven different upstream repos** o
 ### Step 1 — build the index (one-time, ~2 min, ~500 MB in `~/.cache/web3-docs-mcp/`)
 
 ```bash
-uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp --sync
+uvx web3-docs-mcp --sync
 ```
 
 ### Step 2 — register the server with your agent
@@ -35,13 +36,13 @@ uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp --sync
 The launch command is identical across clients:
 
 ```text
-uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp
+uvx web3-docs-mcp
 ```
 
 <details><summary><b>Claude Code</b></summary>
 
 ```bash
-claude mcp add web3-docs -- uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp
+claude mcp add web3-docs -- uvx web3-docs-mcp
 ```
 
 </details>
@@ -55,7 +56,7 @@ Add to the client's MCP config (`~/.cursor/mcp.json`, `~/.codeium/windsurf/mcp_c
   "mcpServers": {
     "web3-docs": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/dioptx/web3-docs", "web3-docs-mcp"]
+      "args": ["web3-docs-mcp"]
     }
   }
 }
@@ -66,7 +67,17 @@ Add to the client's MCP config (`~/.cursor/mcp.json`, `~/.codeium/windsurf/mcp_c
 <details><summary><b>OpenAI Codex CLI</b></summary>
 
 ```bash
-codex mcp add web3-docs -- uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp
+codex mcp add web3-docs -- uvx web3-docs-mcp
+```
+
+</details>
+
+<details><summary><b>pip / pipx</b></summary>
+
+```bash
+pip install web3-docs-mcp
+# or:
+pipx install web3-docs-mcp
 ```
 
 </details>
@@ -165,7 +176,7 @@ Contract registry covers: `aave`, `across`, `chainlink`, `compound`, `create2_de
 **"Index is empty" on any tool call.** You haven't run `--sync` yet. Run:
 
 ```bash
-uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp --sync
+uvx web3-docs-mcp --sync
 ```
 
 **`uvx: command not found`.** Install [uv](https://docs.astral.sh/uv/getting-started/installation/): `curl -LsSf https://astral.sh/uv/install.sh | sh`.

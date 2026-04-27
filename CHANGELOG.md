@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - 17 sync `print()` calls that previously could have polluted stdout if invoked at MCP runtime now route through a dedicated stderr logger.
 
+### Release automation (post-launch, 2026-04-27)
+- Tag-driven release workflow at `.github/workflows/release.yml`. Pushing a `vX.Y.Z` tag triggers tests → wheel/sdist build → PyPI Trusted Publishing (OIDC, tokenless) → MCP Registry publish via GitHub OIDC (tokenless) → GitHub Release with build artifacts.
+- Helper at `scripts/release.sh <version>` that bumps `pyproject.toml` + `server.json`, commits, annotates a tag, and pushes both. The workflow handles the rest.
+- One-time setup: PyPI Trusted Publisher pointing at `dioptx/web3-docs`, workflow `release.yml`, environment `pypi`. GitHub repo needs an environment named `pypi` (no protection rules required).
+
 ## [0.1.0] — 2026-04-07
 
 ### Added

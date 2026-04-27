@@ -1,0 +1,119 @@
+name: Release
+
+# Triggered by pushing a vX.Y.Z tag. The full pipeline:
+#   1. tag matches pyproject.toml version
+#   2. tests pass on Python 3.11/3.12/3.13
+#   3. wheel + sdist build
+#   4. publish to PyPI via Trusted Publishing (OIDC; no token stored)
+#   5. server.json version is synced to the tag, then mcp-publisher publishes
+#      to the MCP Registry via GitHub OIDC (no token stored)
+#   6. GitHub Release is created with notes from the tag annotation
+#
+# Setup, one-time, on PyPI:
+#   https://pypi.org/manage/project/web3-docs-mcp/settings/publishing/
+#     → "Add a new trusted publisher"
+#     → owner=dioptx, repo=web3-docs, workflow=release.yml, environment=pypi
+#
+# Setup, one-time, on GitHub:
+#   Settings → Environments → New environment → name "pypi" (no protection
+#   rules needed for a personal project; required by Trusted Publishing).
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # for `gh release create`
+  id-token: write   # for PyPI Trusted Publishing + MCP Registry OIDC
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv python install ${{ matrix.python-version }}
+      - run: uv sync --extra test
+      - run: uv run pytest -q
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: pypi   # required name for PyPI Trusted Publishing config
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Verify tag matches pyproject.toml version
+        id: version
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          ver=$(awk -F'"' '/^version = /{print $2; exit}' pyproject.toml)
+          if [ "$tag" != "$ver" ]; then
+            echo "::error::Tag v$tag does not match pyproject.toml version $ver"
+            exit 1
+          fi
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Build wheel + sdist
+        run: uv build
+
+      - name: Publish to PyPI (Trusted Publishing — no token)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
+
+      - name: Wait for PyPI propagation
+        env:
+          VER: ${{ steps.version.outputs.version }}
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf "https://pypi.org/pypi/web3-docs-mcp/$VER/json" >/dev/null && exit 0
+            sleep 5
+          done
+          echo "::error::PyPI propagation timed out after 150s"; exit 1
+
+      - name: Sync server.json version to tag
+        env:
+          VER: ${{ steps.version.outputs.version }}
+        run: |
+          jq --arg v "$VER" '.version = $v | (.packages[].version) = $v' \
+            server.json > server.json.tmp
+          mv server.json.tmp server.json
+
+      - name: Install mcp-publisher
+        run: |
+          curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin mcp-publisher
+
+      - name: Validate server.json
+        run: mcp-publisher validate
+
+      - name: Publish to MCP Registry (GitHub OIDC — no token)
+        run: |
+          mcp-publisher login github-oidc
+          mcp-publisher publish
+
+      - name: Create GitHub Release with build artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VER" \
+            --title "v$VER" \
+            --notes-from-tag \
+            dist/*
