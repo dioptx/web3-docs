@@ -1,6 +1,6 @@
 [project]
 name = "web3-docs-mcp"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCP server for Web3 protocol documentation — EIPs, ERCs, BIPs, SIMDs, Cosmos ADRs, Polkadot RFCs, Stacks SIPs, Avalanche ACPs, Cardano CIPs, Tezos TZIPs, Sui SIPs, plus a canonical contract registry"
 readme = "README.md"
 requires-python = ">=3.11"
