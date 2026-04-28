@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.dioptx/web3-docs -->
+
 <div align="center">
 
 # web3-docs
