@@ -8,6 +8,9 @@ from pathlib import Path
 import pytest
 
 from parser import (
+    _GIT_HISTORY_CACHE,
+    _git_first_commits,
+    _git_meta_for,
     parse_cosmos_adr,
     parse_polkadot_rfc,
     parse_stacks_sip,
@@ -78,6 +81,9 @@ This proposes a periodic, sale-based method for assigning Coretime.
         assert "Agile Coretime" in result.title
         assert "Gavin Wood" in result.authors
         assert result.created == "30 June 2023"
+        # Polkadot RFCs have no upstream Category field; default to "RFC"
+        # so DB rows aren't stuck with empty category.
+        assert result.category == "RFC"
 
     def test_no_number_returns_none(self, tmp_file):
         f = tmp_file("# README\n\nNot an RFC.", "README.md")
@@ -124,6 +130,148 @@ This SIP defines a standard trait for fungible tokens.
     def test_no_sip_number_returns_none(self, tmp_file):
         f = tmp_file("# Just a doc\n\nNo SIP number here.", "readme.md")
         assert parse_stacks_sip(f) is None
+
+    def test_multiline_author_bullets(self, tmp_file):
+        # Regression: sip-012 etc. use a multi-line `Authors:\n* Name <email>`
+        # preamble. The earlier single-line regex captured only the first
+        # bullet (or none, depending on key spelling), leaving 13/28 SIPs
+        # with empty authors. New bullet-list handler joins them.
+        f = tmp_file("""# Preamble
+
+SIP Number: 012
+Title: Burn Height Selection for a Network Upgrade
+Authors:
+* Asteria <asteria@syvita.org>
+* Aaron Blankstein <aaron@hiro.so>
+* Jude Nelson <jude@stacks.org>
+Consideration: Governance, Technical
+Type: Consensus
+Status: Ratified
+
+## Abstract
+
+Test.
+""", "sip-012-burn.md")
+        result = parse_stacks_sip(f)
+
+        assert result is not None
+        assert result.id == "sip-012"
+        assert "Asteria" in result.authors
+        assert "Aaron Blankstein" in result.authors
+        assert "Jude Nelson" in result.authors
+        assert result.authors.count(",") == 2  # 3 authors → 2 commas
+        # Single-line fields still parse cleanly.
+        assert result.status == "Ratified"
+        assert result.category == "Consensus"
+
+    def test_author_s_with_dash_bullets(self, tmp_file):
+        # Regression: sip-031, sip-033, sip-034, sip-035 use `Author(s):` (with
+        # parentheses) and dash-bullet items (`-` not `*`).
+        f = tmp_file("""# Preamble
+
+SIP Number: 033
+Title: Clarity Smart Contract Language, version 4
+Author(s):
+- Brice Dobry <brice@stackslabs.com>
+- Marvin Janssen <marvin@ryder.id>
+- Jude Nelson <jude@stacks.org>
+Type: Consensus
+Status: Draft
+
+## Abstract
+
+Test.
+""", "sip-033.md")
+        result = parse_stacks_sip(f)
+
+        assert result is not None
+        assert "Brice Dobry" in result.authors
+        assert "Marvin Janssen" in result.authors
+        assert "Jude Nelson" in result.authors
+        assert result.authors.count(",") == 2
+
+    def test_indented_authors_continuation(self, tmp_file):
+        # Regression: sip-015 uses 4-space indented continuation with commas.
+        f = tmp_file("""# Preamble
+
+SIP Number: 015
+Title: Stacks Upgrade
+Authors:
+    Aaron Blankstein <aaron@hiro.so>,
+    Mike Cohen <mjoecohen@gmail.com>,
+    Jude Nelson <jude@stacks.org>
+Type: Consensus
+Status: Ratified
+
+## Abstract
+
+Test.
+""", "sip-015.md")
+        result = parse_stacks_sip(f)
+
+        assert result is not None
+        assert "Aaron Blankstein" in result.authors
+        assert "Mike Cohen" in result.authors
+        assert "Jude Nelson" in result.authors
+
+    def test_wrapped_same_line_authors(self, tmp_file):
+        # Regression: sip-020 has `Authors: Name <url>, Other` with the URL
+        # for "Other" wrapped onto the next unindented line.
+        f = tmp_file("""# Preamble
+
+SIP Number: 020
+Title: Bitwise Operations
+Authors: Cyle Witruk <https://github.com/cylewitruk>, Brice Dobry
+<https://github.com/obycode>
+Type: Consensus
+Status: Ratified
+
+## Abstract
+
+Test.
+""", "sip-020.md")
+        result = parse_stacks_sip(f)
+
+        assert result is not None
+        assert "Cyle Witruk" in result.authors
+        assert "Brice Dobry" in result.authors
+
+
+# --- Git-history-derived metadata ---
+
+class TestGitHistoryMeta:
+    def test_first_commit_lookup(self, tmp_git_repo):
+        repo = tmp_git_repo([
+            ("docs/architecture/adr-001-foo.md", "# ADR 001\n", "2018-09-17T08:26:21-07:00", "Dev Ojha", "dev@example.com"),
+            ("docs/architecture/adr-002-bar.md", "# ADR 002\n", "2018-11-14T20:44:17+01:00", "gamarin2", "gamarin@example.com"),
+        ])
+        _GIT_HISTORY_CACHE.clear()
+        history = _git_first_commits(repo, "docs/architecture")
+        assert history["docs/architecture/adr-001-foo.md"] == ("2018-09-17T08:26:21-07:00", "Dev Ojha")
+        assert history["docs/architecture/adr-002-bar.md"] == ("2018-11-14T20:44:17+01:00", "gamarin2")
+
+    def test_meta_helper_resolves_path(self, tmp_git_repo):
+        # Regression: parse_cosmos_adr passes the file path; the helper has to
+        # walk up to the repo root, scope to the configured subpath, and look
+        # up the rel-path key. All three were broken in early A0 iterations.
+        repo = tmp_git_repo([
+            ("docs/architecture/adr-099-zeta.md", "# ADR 099\n", "2020-05-01T00:00:00Z", "Charlie", "c@example.com"),
+        ])
+        _GIT_HISTORY_CACHE.clear()
+        date, author = _git_meta_for(repo / "docs/architecture/adr-099-zeta.md", "docs/architecture")
+        assert date == "2020-05-01T00:00:00Z"
+        assert author == "Charlie"
+
+    def test_shallow_clone_yields_empty(self, tmp_git_repo, tmp_path):
+        # If the clone is shallow we explicitly bail out — the most recent
+        # ref's author is misleading (typically a bot like dependabot).
+        repo = tmp_git_repo([
+            ("docs/x.md", "# x\n", "2020-01-01T00:00:00Z", "Alice", "a@example.com"),
+        ])
+        # Drop a `shallow` marker to simulate shallow clone state.
+        (repo / ".git" / "shallow").write_text("dummy\n")
+        _GIT_HISTORY_CACHE.clear()
+        assert _git_first_commits(repo) == {}
 
 
 # --- Avalanche ACP ---
@@ -246,6 +394,31 @@ status: Draft
 No tzip field.
 """, "proposal.md")
         assert parse_tezos_tzip(f) is None
+
+    def test_malformed_yaml_date_still_parses(self, tmp_file):
+        # Regression: tzip-26 has `date: 2023-25-09` (DD-MM swapped). PyYAML's
+        # implicit timestamp resolver raises ValueError on month=25, dropping
+        # the proposal entirely. Custom loader keeps such scalars as strings.
+        f = tmp_file("""---
+tzip: 026
+title: FA2.1 - Ticket Asset Interface
+status: Submitted
+type: Financial Application (FA)
+author: Lucas Felli
+created: 2022-08-10
+date: 2023-25-09
+---
+
+## Summary
+
+FA2.1 extension.
+""", "tzip-26.md")
+        result = parse_tezos_tzip(f)
+
+        assert result is not None
+        assert result.id == "tzip-026"
+        assert result.number == 26
+        assert result.status == "Submitted"
 
 
 # --- Sui SIP ---

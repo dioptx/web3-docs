@@ -4,12 +4,111 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
 from db import ProposalRecord
+
+
+# --- Git history cache (used by parsers whose upstream omits authors/created) ---
+
+_GIT_HISTORY_CACHE: dict[tuple[Path, str], dict[str, tuple[str, str]]] = {}
+
+
+def _git_first_commits(repo_dir: Path, subpath: str = ".") -> dict[str, tuple[str, str]]:
+    """Return ``{relpath: (iso_date, author_name)}`` for every file under
+    ``subpath`` in the repo, keyed by the commit that *added* the file.
+
+    Scoping the walk to ``subpath`` keeps the call cheap on large repos like
+    cosmos-sdk (otherwise git would walk the entire history of every file).
+    Requires a non-shallow clone (partial clones with full commit history are
+    fine). Returns an empty dict if the repo is shallow or git fails.
+    """
+    if not (repo_dir / ".git").exists() and not (repo_dir / ".git").is_file():
+        return {}
+    if (repo_dir / ".git" / "shallow").exists():
+        return {}
+
+    # Walk commits oldest-first and remember the *earliest* commit that touched
+    # each path. We don't use --diff-filter=A because reorgs that moved a file
+    # into its current location (e.g. Avalanche ACPs/<num>-<slug>/README.md
+    # was previously ACPs/X-<slug>.md) would otherwise leave the moved file
+    # without any date. For files that were never renamed this is the creation
+    # commit; for moved files it's the rename-to-current-path commit. Both are
+    # acceptable creation-of-this-record dates.
+    cmd = [
+        "git", "-C", str(repo_dir),
+        "log", "--reverse",
+        "--name-only", "--pretty=format:COMMIT%x09%aI%x09%an",
+    ]
+    if subpath and subpath != ".":
+        cmd += ["--", subpath]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    if result.returncode != 0:
+        return {}
+
+    out: dict[str, tuple[str, str]] = {}
+    cur_date = cur_author = ""
+    for line in result.stdout.splitlines():
+        if line.startswith("COMMIT\t"):
+            parts = line.split("\t", 2)
+            if len(parts) == 3:
+                cur_date, cur_author = parts[1], parts[2]
+        elif line.strip() and cur_date:
+            out.setdefault(line.strip(), (cur_date, cur_author))
+    return out
+
+
+def _git_history_for(repo_dir: Path, subpath: str = ".") -> dict[str, tuple[str, str]]:
+    """Cached wrapper around :func:`_git_first_commits`."""
+    key = (repo_dir, subpath)
+    if key not in _GIT_HISTORY_CACHE:
+        _GIT_HISTORY_CACHE[key] = _git_first_commits(repo_dir, subpath)
+    return _GIT_HISTORY_CACHE[key]
+
+
+def _git_meta_for(filepath: Path, subpath: str = ".") -> tuple[str, str]:
+    """Return ``(iso_date, author)`` for the commit that added ``filepath``,
+    or ``("", "")`` if no git history is available. ``subpath`` scopes the
+    underlying ``git log`` walk so very large repos stay cheap.
+    """
+    repo_root = filepath.parent
+    while repo_root.parent != repo_root:
+        if (repo_root / ".git").exists():
+            break
+        repo_root = repo_root.parent
+    if not (repo_root / ".git").exists():
+        return "", ""
+    history = _git_history_for(repo_root, subpath)
+    if not history:
+        return "", ""
+    try:
+        rel = str(filepath.relative_to(repo_root))
+    except ValueError:
+        return "", ""
+    return history.get(rel, ("", ""))
+
+
+class _StringDateLoader(yaml.SafeLoader):
+    """SafeLoader variant that keeps date/timestamp scalars as strings.
+
+    PyYAML's default loaders auto-construct datetime.date for YYYY-MM-DD scalars,
+    raising ValueError on malformed dates (e.g. tzip-26's `date: 2023-25-09`).
+    Treating them as strings keeps such proposals indexable.
+    """
+
+
+_StringDateLoader.yaml_implicit_resolvers = {
+    ch: [(tag, regexp) for (tag, regexp) in resolvers
+         if tag != "tag:yaml.org,2002:timestamp"]
+    for ch, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
 
 
 def parse_eip(filepath: Path) -> ProposalRecord | None:
@@ -204,11 +303,11 @@ def _split_yaml_frontmatter(text: str) -> tuple[dict | None, str]:
     body = text[end + 3:].strip()
 
     try:
-        meta = yaml.safe_load(front)
+        meta = yaml.load(front, Loader=_StringDateLoader)
         if not isinstance(meta, dict):
             return None, text
         return meta, body
-    except yaml.YAMLError:
+    except (yaml.YAMLError, ValueError, TypeError):
         return None, text
 
 
@@ -591,6 +690,9 @@ def parse_cosmos_adr(filepath: Path) -> ProposalRecord | None:
     # Body is everything after the title
     body = text.strip()
 
+    # ADRs have no preamble metadata; pull authors+created from git history.
+    created, authors = _git_meta_for(filepath, "docs/architecture")
+
     return ProposalRecord(
         id=f"adr-{number:03d}",
         chain="cosmos",
@@ -599,8 +701,8 @@ def parse_cosmos_adr(filepath: Path) -> ProposalRecord | None:
         title=title,
         status=status,
         category="Architecture",
-        authors="",
-        created="",
+        authors=authors,
+        created=created,
         requires="",
         description=_extract_abstract(body),
         body=body,
@@ -625,16 +727,21 @@ def parse_polkadot_rfc(filepath: Path) -> ProposalRecord | None:
     title_match = re.search(r'^#\s+(?:RFC-?\d+[:\s]*)?(.+)', text, re.MULTILINE)
     title = title_match.group(1).strip() if title_match else ""
 
-    # Extract metadata from table
+    # Extract metadata from table — anchor to single lines so a malformed
+    # row (e.g. RFC-0017's Description without a trailing pipe) can't consume
+    # subsequent rows like Authors.
     authors = ""
     start_date = ""
     description = ""
-    for match in re.finditer(r'\|\s*\*\*(\w[\w\s]*?)\*\*\s*\|\s*(.+?)\s*\|', text):
+    for match in re.finditer(
+        r'^\|[ \t]*\*\*([^*|\n]+?)\*\*[ \t]*\|[ \t]*([^\n|]*?)[ \t]*\|',
+        text, re.MULTILINE,
+    ):
         key = match.group(1).strip().lower()
         val = match.group(2).strip()
         if "author" in key:
             authors = val
-        elif "start" in key and "date" in key:
+        elif ("start" in key and "date" in key) or "proposition date" in key:
             start_date = val
         elif "description" in key:
             description = val
@@ -648,7 +755,7 @@ def parse_polkadot_rfc(filepath: Path) -> ProposalRecord | None:
         number=number,
         title=title,
         status="Approved",
-        category="",
+        category="RFC",
         authors=authors,
         created=start_date,
         requires="",
@@ -666,6 +773,84 @@ def _normalize_sip_status(raw: str) -> str:
     return "-".join(part.capitalize() for part in cleaned.split("-"))
 
 
+def _parse_stacks_preamble(text: str) -> dict[str, str]:
+    """Parse a Stacks SIP preamble into {lowercase_key: raw_block}.
+
+    Stacks SIPs use four header shapes that all need to round-trip cleanly:
+
+    1. ``Key: value`` on one line.
+    2. ``Key: value, more`` followed by an unindented line-wrap continuation
+       (sip-020).
+    3. ``Key:\\n    indented continuation, comma-separated`` (sip-015).
+    4. ``Key:\\n\\n* bullet\\n* bullet`` (sip-021), with optional blank line
+       between header and bullets.
+
+    Field headers must start at column 0 and not be a bullet marker. Anything
+    that follows a header until the next header (or blank-line-then-header) is
+    that field's block. Callers normalize the block with helpers below.
+    """
+    # Bound to the preamble — everything after the first body section
+    # heading (`## Abstract`, `## Introduction`, etc.) is not metadata.
+    body_split = re.search(r"^##\s", text, re.MULTILINE)
+    preamble = text[: body_split.start()] if body_split else text
+
+    blocks: dict[str, list[str]] = {}
+    current_key: str | None = None
+    current_lines: list[str] = []
+    blank_run = 0
+
+    for line in preamble.splitlines():
+        is_blank = line.strip() == ""
+        is_indented = line.startswith((" ", "\t"))
+        is_bullet = bool(re.match(r"\s*[-*]\s", line))
+        header = re.match(r"^([A-Za-z][\w\s\-()]*?):[ \t]*(.*)$", line)
+
+        if header and not is_indented and not is_bullet:
+            if current_key is not None:
+                blocks.setdefault(current_key, current_lines)
+            current_key = header.group(1).strip().lower()
+            tail = header.group(2).strip()
+            current_lines = [tail] if tail else []
+            blank_run = 0
+        elif current_key is not None:
+            if is_blank:
+                blank_run += 1
+                # Two consecutive blanks ends the field.
+                if blank_run >= 2:
+                    blocks.setdefault(current_key, current_lines)
+                    current_key = None
+                    current_lines = []
+                    blank_run = 0
+            else:
+                blank_run = 0
+                current_lines.append(line)
+
+    if current_key is not None:
+        blocks.setdefault(current_key, current_lines)
+
+    return {k: "\n".join(v).strip() for k, v in blocks.items()}
+
+
+def _normalize_authors_block(raw: str) -> str:
+    """Flatten a Stacks author block into a comma-separated string.
+
+    Handles both ``*`` and ``-`` bullet markers; falls back to comma-split
+    for indented continuation or wrapped same-line lists.
+    """
+    if not raw:
+        return ""
+    if re.search(r"(?:^|\n)[ \t]*[-*]\s", raw):
+        names: list[str] = []
+        for line in raw.splitlines():
+            cleaned = re.sub(r"^[ \t]*[-*]\s*", "", line).strip()
+            if cleaned:
+                names.append(cleaned)
+        return ", ".join(names)
+    flat = re.sub(r"\s+", " ", raw).strip().rstrip(",")
+    parts = [p.strip() for p in flat.split(",") if p.strip()]
+    return ", ".join(parts)
+
+
 def parse_stacks_sip(filepath: Path) -> ProposalRecord | None:
     """Parse Stacks SIP. Format: # Preamble with key: value pairs."""
     text = filepath.read_text(errors="replace")
@@ -678,12 +863,15 @@ def parse_stacks_sip(filepath: Path) -> ProposalRecord | None:
         return None
     number = int(num_match.group(1))
 
-    # Extract key-value pairs from preamble
-    meta: dict[str, str] = {}
-    for match in re.finditer(r'^([A-Za-z][\w\s-]*?):\s*(.+)$', text, re.MULTILINE):
-        key = match.group(1).strip().lower()
-        val = match.group(2).strip()
-        meta[key] = val
+    meta = _parse_stacks_preamble(text)
+    # Normalize across the three observed key spellings: `Author`, `Authors`, `Author(s)`.
+    authors_raw = (
+        meta.get("authors")
+        or meta.get("author")
+        or meta.get("author(s)")
+        or ""
+    )
+    meta["authors"] = _normalize_authors_block(authors_raw)
 
     title = meta.get("title", "")
     if not title:
@@ -699,7 +887,7 @@ def parse_stacks_sip(filepath: Path) -> ProposalRecord | None:
         title=title,
         status=_normalize_sip_status(meta.get("status", "")),
         category=meta.get("type", meta.get("consideration", "")),
-        authors=meta.get("author", ""),
+        authors=meta.get("authors") or meta.get("author", ""),
         created=meta.get("created", ""),
         requires="",
         description=_extract_abstract(body),
@@ -748,6 +936,9 @@ def parse_avalanche_acp(filepath: Path) -> ProposalRecord | None:
 
     body = text.strip()
 
+    # ACPs have no Created row in their preamble table; pull it from git history.
+    created, _ = _git_meta_for(filepath, "ACPs")
+
     return ProposalRecord(
         id=f"acp-{number}",
         chain="avalanche",
@@ -757,7 +948,7 @@ def parse_avalanche_acp(filepath: Path) -> ProposalRecord | None:
         status=status,
         category=meta.get("track", ""),
         authors=authors,
-        created="",
+        created=created,
         requires="",
         description=_extract_abstract(body),
         body=body,
@@ -954,6 +1145,8 @@ SOURCES = [
         "branch": "main",
         "glob": "docs/architecture/adr-*.md",
         "parser": parse_cosmos_adr,
+        # ADRs have no preamble metadata; need full history for authors+created.
+        "keep_history": True,
     },
     {
         "name": "Polkadot RFCs",
@@ -975,6 +1168,8 @@ SOURCES = [
         "branch": "main",
         "glob": "ACPs/*/README.md",
         "parser": parse_avalanche_acp,
+        # ACP preamble has no Created row; need full history.
+        "keep_history": True,
     },
     {
         "name": "Cardano CIPs",

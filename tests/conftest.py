@@ -100,3 +100,50 @@ def populated_db(tmp_db, sample_eip, sample_bip, sample_simd):
         tmp_db.upsert(record)
     tmp_db.commit()
     return tmp_db
+
+
+@pytest.fixture
+def tmp_git_repo(tmp_path):
+    """Factory for tmp git repos with files committed at known dates+authors.
+
+    Returns a callable that takes a list of ``(relpath, content, iso_date,
+    author_name, author_email)`` tuples, runs ``git init`` + per-tuple commits,
+    and returns the repo Path. Used by parser tests that need git history.
+    """
+    import os
+    import subprocess
+
+    def _make_repo(commits: list[tuple[str, str, str, str, str]]) -> Path:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        env = {
+            **os.environ,
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_SYSTEM": "/dev/null",
+        }
+        subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, env=env, check=True)
+        subprocess.run(
+            ["git", "config", "commit.gpgsign", "false"],
+            cwd=repo, env=env, check=True,
+        )
+        for relpath, content, iso_date, author_name, author_email in commits:
+            f = repo / relpath
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(content)
+            subprocess.run(["git", "add", relpath], cwd=repo, env=env, check=True)
+            commit_env = {
+                **env,
+                "GIT_AUTHOR_NAME": author_name,
+                "GIT_AUTHOR_EMAIL": author_email,
+                "GIT_AUTHOR_DATE": iso_date,
+                "GIT_COMMITTER_NAME": author_name,
+                "GIT_COMMITTER_EMAIL": author_email,
+                "GIT_COMMITTER_DATE": iso_date,
+            }
+            subprocess.run(
+                ["git", "commit", "-q", "-m", f"add {relpath}"],
+                cwd=repo, env=commit_env, check=True,
+            )
+        return repo
+
+    return _make_repo

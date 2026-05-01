@@ -18,7 +18,7 @@ Ask your coding agent about EIPs, BIPs, ADRs, CIPs, RFCs and canonical contract 
 
 ## Why
 
-Specs for blockchain protocols live across **eleven different upstream repos** on three different forges. Every time you need to look up EIP-4844, BIP-340, CIP-25, or which fork shipped `PUSH0`, you're tab-hunting through GitHub. This MCP indexes them all locally with FTS5 ranking — **1,767 proposals across 10 chains** plus addresses for 19 protocols on Ethereum, Arbitrum, Base, Optimism, Polygon, and more — so your agent answers with the *actual spec text*, not a hallucinated paraphrase.
+Specs for blockchain protocols live across **eleven different upstream repos** on three different forges. Every time you need to look up EIP-4844, BIP-340, CIP-25, or which fork shipped `PUSH0`, you're tab-hunting through GitHub. This MCP indexes them all locally with FTS5 ranking — **1,780+ proposals across 10 chains** plus addresses for 19 protocols on Ethereum, Arbitrum, Base, Optimism, Polygon, and more — so your agent answers with the *actual spec text*, not a hallucinated paraphrase.
 
 ## Install
 
@@ -185,7 +185,7 @@ uv build                       # build wheel + sdist
 
 ## Status
 
-v0.2.0 — adds Cardano CIPs, Tezos TZIPs, Sui SIPs (10 chains, 1,767 proposals). SQLite + FTS5, FastMCP stdio transport. See [CHANGELOG.md](CHANGELOG.md) for release history.
+v0.2.0 — adds Cardano CIPs, Tezos TZIPs, Sui SIPs. 10 chains, ~1,780 proposals. SQLite + FTS5, FastMCP stdio transport. See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
 

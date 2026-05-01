@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -81,7 +82,7 @@ _EMPTY_DB_MESSAGE = (
     "Run:\n"
     "  uvx --from git+https://github.com/dioptx/web3-docs web3-docs-mcp --sync\n"
     "(or `python server.py --sync` from a source checkout). "
-    "Sync takes ~2 min and indexes 1,767 proposals across 10 chains."
+    "Sync takes ~2 min and indexes ~1,780 proposals across 10 chains."
 )
 
 
@@ -349,6 +350,26 @@ def sync():
         repo_url = source["repo"]
         branch = source["branch"]
         repo_dir = REPOS_DIR / name
+        keep_history = source.get("keep_history", False)
+        glob_pattern = source["glob"]
+        # Pathspec for `git checkout` — first non-wildcard segments of the glob.
+        # "docs/architecture/adr-*.md" → "docs/architecture";  "ACPs/*/README.md" → "ACPs".
+        glob_root_parts: list[str] = []
+        for seg in glob_pattern.split("/"):
+            if "*" in seg or "?" in seg or "[" in seg:
+                break
+            glob_root_parts.append(seg)
+        glob_root = "/".join(glob_root_parts) or "."
+
+        # If a keep_history source already exists as a shallow clone, migrate
+        # it to a partial clone so git log can recover authors+dates.
+        if (
+            keep_history
+            and repo_dir.exists()
+            and (repo_dir / ".git" / "shallow").exists()
+        ):
+            _log(f"  Migrating {name} from shallow → partial clone (keep_history=True)...")
+            shutil.rmtree(repo_dir)
 
         # Clone or pull
         if repo_dir.exists():
@@ -359,18 +380,39 @@ def sync():
             )
             if result.returncode != 0:
                 _log(f"  Warning: git pull failed for {name}: {result.stderr.strip()}")
+            # Re-checkout the glob root in case files changed (partial clone).
+            if keep_history:
+                subprocess.run(
+                    ["git", "-C", str(repo_dir), "checkout", "HEAD", "--", glob_root],
+                    capture_output=True, text=True,
+                )
         else:
             _log(f"Cloning {name}...")
-            result = subprocess.run(
-                ["git", "clone", "--depth", "1", "--branch", branch, repo_url, str(repo_dir)],
-                capture_output=True, text=True,
-            )
+            if keep_history:
+                # Full commit history without blob content; selective checkout
+                # of the glob root keeps disk usage close to a shallow clone.
+                result = subprocess.run(
+                    ["git", "clone", "--filter=blob:none", "--no-checkout",
+                     "--branch", branch, repo_url, str(repo_dir)],
+                    capture_output=True, text=True,
+                )
+                if result.returncode == 0:
+                    co = subprocess.run(
+                        ["git", "-C", str(repo_dir), "checkout", "HEAD", "--", glob_root],
+                        capture_output=True, text=True,
+                    )
+                    if co.returncode != 0:
+                        _log(f"  Warning: checkout {glob_root} failed: {co.stderr.strip()}")
+            else:
+                result = subprocess.run(
+                    ["git", "clone", "--depth", "1", "--branch", branch, repo_url, str(repo_dir)],
+                    capture_output=True, text=True,
+                )
             if result.returncode != 0:
                 _log(f"  Error: git clone failed for {name}: {result.stderr.strip()}")
                 continue
 
         # Parse proposals
-        glob_pattern = source["glob"]
         parser_fn = source["parser"]
         files = sorted(repo_dir.glob(glob_pattern))
 
